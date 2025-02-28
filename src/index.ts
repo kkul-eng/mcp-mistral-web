@@ -44,7 +44,7 @@ app.post("/ask", async (req: Request, res: Response) => {
   const question = req.body.question;
   try {
     const content = await fs.readFile("src/izahname.txt", "utf-8");
-    const prompt = `Aşağıdaki dokümana dayanarak sorumu mümkün olduğunca net ve doğru bir şekilde yanıtla. Eğer dokümanda cevap yoksa, 'Dokümanda bu soruya yanıt bulunamadı' de. Doküman: ${content}\nSoru: ${question}\nCevap:`;
+    const prompt = `Aşağıdaki dokümana dayanarak sorumu mümkün olduğunca net, doğru ve doküman içeriğine sadık bir şekilde yanıtla. Eğer dokümanda cevap yoksa, 'Dokümanda bu soruya yanıt bulunamadı' de. Doküman: ${content}\nSoru: ${question}\nCevap:`;
 
     const response = await axios.post(
       "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1",
@@ -54,7 +54,7 @@ app.post("/ask", async (req: Request, res: Response) => {
           "Authorization": `Bearer ${HUGGINGFACE_API_KEY}`,
           "Content-Type": "application/json",
         },
-        timeout: 10000,  // 10 saniye timeout
+        timeout: 15000,  // 15 saniye timeout
       }
     );
 
@@ -62,13 +62,14 @@ app.post("/ask", async (req: Request, res: Response) => {
       throw new Error("API yanıtında beklenen formatta veri yok");
     }
 
-    const answer = response.data[0].generated_text.trim();
+    const generatedText = response.data[0].generated_text.trim();
+    const answer = generatedText.startsWith("Cevap:") ? generatedText.replace("Cevap:", "").trim() : generatedText;
     res.json({ answer });
   } catch (error: any) {
     console.error("Hata detayları:", error.message, error.stack);
     let errorMessage = "Cevap alınamadı";
     if (error.response) {
-      errorMessage += `: API hatası - ${error.response.status} (${error.response.statusText})`;
+      errorMessage += `: API hatası - ${error.response.status} (${error.response.statusText}) - ${JSON.stringify(error.response.data)}`;
     } else if (error.request) {
       errorMessage += `: İstek gönderilemedi - ${error.message}`;
     } else {
