@@ -3,12 +3,9 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { ListResourcesRequestSchema, ReadResourceRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import * as fs from "fs/promises";
 import express, { Request, Response } from "express";  // Türleri ekledik
-import axios from "axios";
-
-const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY || "default-key";  // Render’da ortam değişkeni ile sağlanacak
 
 const server = new Server(
-  { name: "mcp-mistral-web", version: "1.0.0" },
+  { name: "mcp-dummy-web", version: "1.0.0" },
   { capabilities: { resources: {} } }
 );
 
@@ -19,7 +16,7 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
       {
         uri: "file:///app/src/izahname.txt",
         name: "Izahname Document",
-        description: "Web üzerinden soru-cevap için doküman",
+        description: "Web üzerinden soru-cevap için dummy doküman",
         mimeType: "text/plain",
       },
     ],
@@ -39,39 +36,26 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 const app = express();
 app.use(express.json());
 
-// Soru-cevap endpoint’i (Mistral ile, Hugging Face üzerinden)
+// Dummy soru-cevap endpoint’i (API gerektirmiyor)
 app.post("/ask", async (req: Request, res: Response) => {
-  const question = req.body.question;
+  const question = req.body.question.toLowerCase();
   try {
-    const content = await fs.readFile("src/izahname.txt", "utf-8");
-    const prompt = `Aşağıdaki dokümana dayanarak sorumu mümkün olduğunca net, doğru ve doküman içeriğine sadık bir şekilde yanıtla. Eğer dokümanda cevap yoksa, 'Dokümanda bu soruya yanıt bulunamadı' de. Doküman: ${content}\nSoru: ${question}\nCevap:`;
+    const content = await fs.readFile("src/izahname.txt", "utf-8").then(content => content.toLowerCase());
+    let answer = "Dokümanda bu soruya yanıt bulunamadı";
 
-    const response = await axios.post(
-      "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1",
-      { inputs: prompt, max_length: 300, temperature: 0.7 },
-      {
-        headers: {
-          "Authorization": `Bearer ${HUGGINGFACE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        timeout: 15000,  // 15 saniye timeout
-      }
-    );
-
-    if (!response.data || !response.data[0] || !response.data[0].generated_text) {
-      throw new Error("API yanıtında beklenen formatta veri yok");
+    // Basit bir kelime eşleştirme ile cevap üret
+    if (content.includes(question.split(" ")[0])) {  // Sorunun ilk kelimesini kontrol et
+      answer = `Dokümanda şu anlatılıyor: "${content.substring(content.indexOf(question.split(" ")[0]), content.indexOf(question.split(" ")[0]) + 100)}..."`; // İlk 100 karakter
+    } else if (content.includes("kriptoloji")) {  // Örnek bir özel durum
+      answer = `Dokümanda şu anlatılıyor: "Kriptoloji, bilgiyi güvenli bir şekilde kodlama ve çözme bilimidir, genellikle şifreleme ve güvenlik için kullanılır."`;
     }
 
-    const generatedText = response.data[0].generated_text.trim();
-    const answer = generatedText.startsWith("Cevap:") ? generatedText.replace("Cevap:", "").trim() : generatedText;
     res.json({ answer });
   } catch (error: any) {
     console.error("Hata detayları:", error.message, error.stack);
     let errorMessage = "Cevap alınamadı";
-    if (error.response) {
-      errorMessage += `: API hatası - ${error.response.status} (${error.response.statusText}) - ${JSON.stringify(error.response.data)}`;
-    } else if (error.request) {
-      errorMessage += `: İstek gönderilemedi - ${error.message}`;
+    if (error.code === 'ENOENT') {
+      errorMessage += `: izahname.txt dosyası bulunamadı - ${error.message}`;
     } else {
       errorMessage += `: ${error.message}`;
     }
@@ -86,7 +70,7 @@ app.get("/", (req: Request, res: Response) => {
     <html lang="tr">
     <head>
       <meta charset="UTF-8">
-      <title>Izahname Dokümanına Soru-Cevap</title>
+      <title>Izahname Dokümanına Soru-Cevap (Dummy)</title>
       <style>
         body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
         textarea, button { width: 100%; margin: 10px 0; padding: 10px; }
@@ -94,7 +78,7 @@ app.get("/", (req: Request, res: Response) => {
       </style>
     </head>
     <body>
-      <h1>Izahname Dokümanına Soru Sor</h1>
+      <h1>Izahname Dokümanına Soru Sor (Dummy Model)</h1>
       <textarea id="question" placeholder="Sorunuzu buraya yazın..."></textarea>
       <button onclick="ask()">Soruyu Gönder</button>
       <div id="answer"></div>
