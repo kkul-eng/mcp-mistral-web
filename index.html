@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <textarea id="question"></textarea>
+  <button onclick="ask()">Sor</button>
+  <div id="answer"></div>
+  <script>
+    async function ask() {
+      const question = document.getElementById("question").value;
+      const response = await fetch("http://localhost:3000/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      const data = await response.json();
+      document.getElementById("answer").innerText = data.answer;
+    }
+  </script>
+</body>
+</html>
